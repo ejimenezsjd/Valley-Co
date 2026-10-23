@@ -2,7 +2,7 @@
 
 Juego de granja en pixel-art para jugar solo o en pareja desde el navegador (móvil u ordenador).
 
-**Jugar:** https://ejimenezsjd.github.io/valley-co/
+**Jugar:** https://ejimenezsjd.github.io/Valley-Co/
 
 ## Jugar en pareja
 1. Los dos abrís el juego y pulsáis **Jugar en pareja**.
