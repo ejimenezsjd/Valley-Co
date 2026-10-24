@@ -191,6 +191,7 @@ body{margin:0}
   <button id="journalBtn" class="frame hb">Diario</button>
   <button id="petBtn" class="frame hb">Equipo</button>
   <button id="designBtn" class="frame hb" hidden>Diseño</button>
+  <button id="saveBtn" class="frame hb">Guardar</button>
   <div class="bars">
     <div id="hpBox" class="frame bar" hidden><span class="lbl">S</span><i id="hBar" style="height:100%"></i></div>
     <div class="frame bar"><span class="lbl">E</span><i id="eBar" style="height:100%"></i></div>
@@ -1414,6 +1415,7 @@ function useAction(){
   if(overlayOpen())return;
   if(fishing.state){fishPress();return;}
   const [tx,ty]=target(),k=tx+','+ty,g=tileAt(tx,ty);
+  if(curMap.inside&&g==='$'&&interiorUse(tx,ty,k,g))return;
   const npc=npcInFront();if(npc)return openTalk(npc);
   const sel=curSlot();
   if(worldUse(tx,ty,k,g,sel))return;
@@ -1910,6 +1912,7 @@ function openJournal(tab){if(tab)journalTab=tab;const re=()=>{const tabs={histor
     h+='</div><h3>Envíos</h3><div class="grid">';for(const k in I){if(I[k].p<=0||['semilla','objeto','consumible','historia','basura','monstruo'].includes(I[k].c))continue;h+=`<span class="gi${me.stats.ship[k]?'':' dim'}" title="${esc(I[k].n)}">${img(k)}</span>`;}h+='</div>';}
   if(journalTab==='ajustes'){h+=`<label class="tog"><input type="checkbox" id="aiTog" ${me.ai?'checked':''} data-a="aitog"> Diálogos con IA para los vecinos</label>
     <div class="meta">Usa tu cuenta de Claude para que los vecinos respondan con frases nuevas y puedas escribirles. La primera vez pedirá permiso. Sin IA, dicen frases guardadas.</div>
+    <div class="meta">La partida se guarda sola cada pocos segundos y al cerrar o salir de la app. Si quieres asegurarte, pulsa <b>Guardar</b>.</div><div class="actions" style="justify-content:flex-start"><button class="btn" data-a="saveall">Guardar ahora</button></div>
     <div class="meta">Partida: <b>${isSolo()?'en solitario':'en pareja'}</b>. Puedes cambiar de partida desde la pantalla de inicio.</div>
     <div class="actions" style="justify-content:flex-start"><button class="btn alt" data-a="rename">Cambiar de partida o de aspecto</button></div>`;}
   openPanel(h+'</div>',{re});};re();}
@@ -1945,6 +1948,7 @@ function renderTalk(id,text,busy){const N=NPCS[id],p=me.fr[id]||0,hh=heartsOf(p)
   let h=`<div class="ph"><div class="who"><img class="face big" src="${portrait(id)}" alt=""><div><h2>${esc(N.n)}</h2><div class="hearts">${'♥'.repeat(hh)}<span>${'♡'.repeat(10-hh)}</span></div></div></div><button class="x" data-a="close" aria-label="Cerrar">✕</button></div>
    <div class="body"><div class="speech" id="speech">${esc(text)}</div>
    <form id="chatForm" class="chat"><input id="chatIn" maxlength="160" autocomplete="off" placeholder="Escríbele algo…"><button class="btn" ${busy?'disabled':''}>Decir</button></form>
+   ${shopBtnFor(id)}
    ${hasMem?`<button class="btn sm alt" data-a="forget" data-id="${id}" style="align-self:flex-start">Pedirle que olvide lo que hemos hablado</button>`:''}
    <h3>Regalar ${today?'(ya le has regalado algo hoy)':gw>=2?'(2 regalos por semana)':''}</h3><div class="gifts">`;
   for(const k of gifts.slice(0,60))h+=`<button class="islot" data-a="gift" data-id="${id}" data-k="${esc(k)}" ${today||gw>=2?'disabled':''} title="${esc(nameOf(k))}">${img(k)}<span>${esc(nameOf(k))}</span></button>`;
@@ -2097,6 +2101,17 @@ function storyGreet(id,opt){const S=storyCur(view),N=NPCS[id],nm=me.nm||'granjer
   const done=Object.keys(view.story.d||{}).length;const tail=done>=STORY.length?pick([' Ya lo has hecho casi todo, '+nm+'. El valle te debe una.',' Y no te duermas en los laureles.']):'';
   const B=/[!?.:]\s$/.test(pre)&&!/:\s$/.test(pre)?body.charAt(0).toUpperCase()+body.slice(1):body;
   return hello+pre+B+tail;}
+
+function shopBtnFor(id){const M=curMap;if(!M||!M.inside)return '';const D2=INTERIOR[M.b];
+  if(D2.shop===id)return `<button class="btn" data-a="openstore" style="align-self:flex-start">Ver la tienda</button>`;
+  if(D2.civic&&id==='tomas')return `<button class="btn" data-a="openstore" style="align-self:flex-start">Ver las salas del Centro Cívico</button>`;
+  if(D2.museum)return `<button class="btn" data-a="openstore" style="align-self:flex-start">Ver el museo</button>`;return '';}
+A.openstore=()=>{const D2=INTERIOR[curMap.b];closePanel();setTimeout(()=>{if(D2.shop){const d=TOWN.doors[DOOR_OF[curMap.b].join(',')];const m=clockMins(view);if(d&&d.open&&(m<d.open[0]||m>=d.open[1]))return toast('Ya ha cerrado. Vuelve de '+hm(d.open[0])+' a '+hm(d.open[1])+'.');openShop(D2.shop,D2.n);}else if(D2.civic)openCivic();else openMuseum();},30);};
+function saveAll(){try{saveMe(true);}catch(e){}try{if(typeof amHost==='function'&&amHost())scheduleWrite();flushNow();}catch(e){}
+  try{LS.set(meKey(SLOT),me);saveLocalFarm();}catch(e){}
+  toast(mode==='net'||SLOT==='solo'&&db?'Partida guardada ✓ (también en la nube)':'Partida guardada en este dispositivo ✓');}
+
+A.saveall=()=>saveAll();
 /* =====================================================================
    8. MUNDO AMPLIADO: compañeros, museo, casa, festivales, taberna,
       eventos, isla, volcán y retos en pareja
@@ -2882,8 +2897,10 @@ function boot(slot){if(booted)return;SLOT=slot;LOOK.nm=($('#nameIn').value||'').
   if(!me.f.intro){me.f.intro=1;toast(slot==='solo'?'Partida en solitario. Mira el buzón junto a tu casa: hay una carta para ti.':'Partida en pareja. Mira el buzón junto a tu casa: hay una carta para ti.','big');}
   saveMe(true);}
 $('#goSolo').addEventListener('click',()=>boot('solo'));$('#goPareja').addEventListener('click',()=>boot('pareja'));
-$('#bagBtn').addEventListener('click',openBag);$('#journalBtn').addEventListener('click',()=>openJournal());$('#craftBtn').addEventListener('click',openCraft);$('#petBtn').addEventListener('click',openRefugio);$('#designBtn').addEventListener('click',()=>designToggle(true));
+$('#bagBtn').addEventListener('click',openBag);$('#saveBtn').addEventListener('click',saveAll);$('#journalBtn').addEventListener('click',()=>openJournal());$('#craftBtn').addEventListener('click',openCraft);$('#petBtn').addEventListener('click',openRefugio);$('#designBtn').addEventListener('click',()=>designToggle(true));
 base=newFarm('pareja');view=base;
+
+addEventListener('pagehide',()=>{if(!booted)return;try{saveMe(true);LS.set(meKey(SLOT),me);saveLocalFarm();flushNow();}catch(e){}});
 
 /* =====================================================================
    P2P: versión independiente (sin cuenta de Claude). Conecta a dos
