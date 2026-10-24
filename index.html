@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2c4424">
-<title>Valle Compartido</title>
+<title>TheValleys&amp;Co</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap">
@@ -149,7 +149,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 #sleepVeil p{margin:8px 0 14px}
 .slots3{display:flex;flex-direction:column;gap:8px}
 .slotc{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:3px solid var(--wood-dk);border-radius:7px;background:var(--gold);padding:9px 12px;box-shadow:0 3px 0 var(--wood-dk)}
-.slotc.pair{background:#bfe3a8}.slotc b{font-size:19px}.slotc span{font-size:13px;font-weight:700;color:var(--wood)}.slotc em{font-style:normal;font-size:12px;color:var(--ink-soft);line-height:1.35}
+.slotc.pair{background:#bfe3a8}.slotc.friends{background:#b8d8f0}.slotc b{font-size:19px}.slotc span{font-size:13px;font-weight:700;color:var(--wood)}.slotc em{font-style:normal;font-size:12px;color:var(--ink-soft);line-height:1.35}
 .slotc:active{transform:translateY(2px);box-shadow:none}
 #tavern{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(calc(100vw - 24px),460px);max-height:min(86vh,680px);display:flex;flex-direction:column;gap:6px;padding:10px 12px 12px;overflow-y:auto}
 #tavern h2{margin:0;font-size:21px}#tavern h3{margin:4px 0 0;font-size:14px;color:var(--wood);text-transform:uppercase;letter-spacing:.04em}
@@ -211,13 +211,14 @@ body{margin:0}
 <div id="sleepVeil" hidden><div><div class="z">Z z z</div><p id="sleepMsg">Durmiendo…</p><button class="btn alt" id="wakeBtn">Levantarme</button></div></div>
 <div id="start">
   <div class="card frame">
-    <h1>Valle Compartido<span>Una granja para dos, cada uno desde su móvil.</span></h1>
+    <h1>TheValleys&amp;Co<span>Tu granja: en solitario, en pareja o con amigos, cada uno desde su móvil.</span></h1>
     <label for="nameIn">Tu nombre<input id="nameIn" maxlength="14" autocomplete="off" placeholder="Erik"></label>
     <div><div style="font-size:13px;font-weight:700;margin-bottom:6px">Camisa</div><div class="swatches" id="shirtSw"></div></div>
     <div><div style="font-size:13px;font-weight:700;margin-bottom:6px">Pelo</div><div class="swatches" id="hairSw"></div></div>
     <div class="slots3">
       <button class="slotc" id="goSolo"><b>Jugar en solitario</b><span id="sumSolo">Nueva partida</span><em>Tu propia granja. Los retos en pareja los haces con un compañero criatura.</em></button>
-      <button class="slotc pair" id="goPareja"><b>Jugar en pareja</b><span id="sumPareja">Granja compartida</span><em>La granja que compartes con quien abra esta página. Los retos en pareja necesitan a los dos.</em></button>
+      <button class="slotc pair" id="goPareja"><b>Jugar en pareja</b><span id="sumPareja">Granja compartida</span><em>La granja que compartes con tu pareja. Los retos en pareja necesitan a los dos.</em></button>
+      <button class="slotc friends" id="goAmigos"><b>Jugar con amigos</b><span id="sumAmigos">Granja de amigos</span><em>Otra granja aparte para jugar con amigos, sin tocar la de tu pareja.</em></button>
     </div>
     <div class="note">Hereda la granja de la abuela Rosa, haz amigos entre vecinos y criaturas, baja a la mina, viaja a la isla y restaura el Centro Cívico para que la Fuente vuelva a brotar.</div>
   </div>
@@ -1282,7 +1283,7 @@ function freshMe(){return {v:3,t:0,nm:'',shirt:SHIRTS[0],hair:HAIRS[0],energy:MA
   mail:[{id:'abuela',from:'Abuela Rosa',t:'Para ti, cariño',body:'Si estás leyendo esto, la granja ya es tuya. Siento haberla dejado tan descuidada: los últimos años no me dieron las fuerzas.\n\nEl valle era un lugar mágico cuando la Fuente de la plaza brotaba. Desde que se secó, todo se ha ido apagando un poco. Don Tomás, el alcalde, te ayudará. Confío en ti.\n\nTe dejo unas semillas de chirivía. Empieza por ahí: labra, siembra y riega cada día.\n\nCon todo mi cariño,\nRosa',items:{s_chirivia:5},read:false}],
   claimed:{},seen:{},storySeen:0,chests:{},elev:0,sel:'tool:azada',pins:{},upgrade:null,ai:true,picked:{},talkStory:null,map:'farm',x:5.5,y:6.9,hearts:{},follow:null};}
 let me=freshMe(),SLOT=null,booted=false;
-function meKey(slot){return slot==='solo'?'vc_me_solo':'vc_me2';}
+function meKey(slot){return slot==='solo'?'vc_me_solo':slot==='amigos'?'vc_me_amigos':'vc_me2';}
 function fixMe(m){const f=freshMe();for(const k in f)if(m[k]==null)m[k]=f[k];for(const k in f.stats)if(m.stats[k]==null)m.stats[k]=f.stats[k];for(const k in f.xp)if(m.xp[k]==null)m.xp[k]=0;
   if(m.v<3){m.v=3;const seen={};for(let j=0;j<(m.storySeen||0)&&j<OLD_STORY.length;j++)seen[OLD_STORY[j]]=1;m.seen=Object.assign(seen,m.seen||{});if(typeof m.talkStory==='number')m.talkStory=null;}
   return m;}
@@ -1913,7 +1914,7 @@ function openJournal(tab){if(tab)journalTab=tab;const re=()=>{const tabs={histor
   if(journalTab==='ajustes'){h+=`<label class="tog"><input type="checkbox" id="aiTog" ${me.ai?'checked':''} data-a="aitog"> Diálogos con IA para los vecinos</label>
     <div class="meta">Usa tu cuenta de Claude para que los vecinos respondan con frases nuevas y puedas escribirles. La primera vez pedirá permiso. Sin IA, dicen frases guardadas.</div>
     <div class="meta">La partida se guarda sola cada pocos segundos y al cerrar o salir de la app. Si quieres asegurarte, pulsa <b>Guardar</b>.</div><div class="actions" style="justify-content:flex-start"><button class="btn" data-a="saveall">Guardar ahora</button></div>
-    <div class="meta">Partida: <b>${isSolo()?'en solitario':'en pareja'}</b>. Puedes cambiar de partida desde la pantalla de inicio.</div>
+    <div class="meta">Partida: <b>${SLOT==='solo'?'en solitario':SLOT==='amigos'?'con amigos':'en pareja'}</b>. Puedes cambiar de partida desde la pantalla de inicio.</div>
     <div class="actions" style="justify-content:flex-start"><button class="btn alt" data-a="rename">Cambiar de partida o de aspecto</button></div>`;}
   openPanel(h+'</div>',{re});};re();}
 A.jtab=d=>{journalTab=d.t;rerender();};
@@ -1972,7 +1973,7 @@ function npcRules(id,opt){opt=opt||{};const N=NPCS[id],hh=heartsOf(me.fr[id]),S=
 Habla en español de España, coloquial y natural, en primera persona. No rompas nunca el personaje ni digas que eres una IA o un juego.
 ${humor}
 Situación: ${WEEKDAYS[weekday(view)]}, día ${view.day} de ${SEASONS[view.season].toLowerCase()} del año ${view.year}, son las ${hm(m)}, ${view.rain?'llueve':view.snow?'nieva':'hace buen tiempo'}. Estás ${npcWhere(id)}.
-Hablas con ${me.nm}, que heredó la granja de su abuela Rosa${Object.keys(remotes).length?' y la lleva junto a su pareja':''}. Vuestra amistad: ${hh}/10 corazones (${tone}).
+Hablas con ${me.nm}, que heredó la granja de su abuela Rosa${Object.keys(remotes).length?(SLOT==='amigos'?' y la lleva junto a sus amigos':' y la lleva junto a su pareja'):''}. Vuestra amistad: ${hh}/10 corazones (${tone}).
 Lo que recuerdas de conversaciones anteriores con ${me.nm}: ${mem||'todavía nada importante'}. Saca esos recuerdos cuando venga a cuento (bromas internas, cosas que te contó, promesas).
 Si ${me.nm} te pide que olvides algo o lo que habéis hablado, acepta con gracia y añade al final de tu respuesta exactamente la etiqueta [OLVIDAR].
 La villa tiene una valoración de ${villaScore(view)} puntos (${villaLevel(view).n})${Object.keys(view.proj||{}).length?'; proyectos del pueblo terminados: '+Object.keys(view.proj).map(p=>(PROJECTS[p]||{}).n).filter(Boolean).join(', '):''}.
@@ -2802,7 +2803,8 @@ function interiorLabels(label){if(!curMap.inside)return;for(const n of insideNpc
 let base=null,view=null,mode='local',hostState='me',db=null,room=null,user=null,canWrite=false,uid=null,farmRef=null;
 let gotSnap=false,docMissing=false,myPeer=null,mySeq=0,pending=[],myActs=[],mySleep=0;
 const lastSeen={},remotes={};
-function farmKey(slot){return slot==='solo'?'vc_farm_solo':'vc_farm2';}
+function farmKey(slot){return slot==='solo'?'vc_farm_solo':slot==='amigos'?'vc_farm_amigos':'vc_farm2';}
+function samePeer(p){return p.sameTab||((p.presence&&p.presence.f)||'pareja')===SLOT;}
 function amHost(){return mode==='local'||hostState==='me';}
 function saveLocalFarm(){if(amHost()&&SLOT)LS.set(farmKey(SLOT),base);}
 let wTimer=null,writing=false,dirty=false;
@@ -2810,7 +2812,7 @@ function canPush(){if(!db||!farmRef)return false;if(SLOT==='solo')return true;re
 function scheduleWrite(){dirty=true;saveLocalFarm();if(!canPush())return;if(!wTimer)wTimer=setTimeout(flush,400);}
 async function flush(){wTimer=null;if(writing){wTimer=setTimeout(flush,250);return;}if(!dirty||!canPush())return;dirty=false;writing=true;base.ver=(base.ver||0)+1;
   try{await farmRef.set(JSON.parse(JSON.stringify(base)));}
-  catch(e){if(e&&e.code==='invalid_argument'){if(SLOT==='pareja'){canWrite=false;room&&room.presence({w:false}).catch(()=>{});elect();}else farmRef=null;}
+  catch(e){if(e&&e.code==='invalid_argument'){if(SLOT!=='solo'){canWrite=false;room&&room.presence({w:false}).catch(()=>{});elect();}else farmRef=null;}
     else if(e&&(e.code==='unavailable'||e.code==='resource_exhausted')){dirty=true;setTimeout(scheduleWrite,800+Math.random()*800);}}
   writing=false;if(dirty)scheduleWrite();}
 function flushNow(){if(wTimer){clearTimeout(wTimer);wTimer=null;}if(dirty)flush();pushMe(true);}
@@ -2830,26 +2832,26 @@ function onState(d){if(hostState==='me'&&gotSnap&&(d.ver||0)<=(base.ver||0))retu
 function elect(){const prev=hostState;
   if(!db)hostState='me';
   else if(!room)hostState=canWrite?'me':'none';
-  else{const c=room.peers().filter(p=>p.kind==='viewer'&&(p.sameTab?canWrite:p.presence&&p.presence.w===true));
+  else{const c=room.peers().filter(p=>p.kind==='viewer'&&samePeer(p)&&(p.sameTab?canWrite:p.presence&&p.presence.w===true));
     if(!c.length)hostState=canWrite?'me':'none';else{c.sort((a,b)=>a.peer<b.peer?-1:a.peer>b.peer?1:0);hostState=c[0].sameTab?'me':c[0].peer;}}
   if(hostState==='me'&&prev!=='me'&&gotSnap){for(const p in base.acks)lastSeen[p]=Math.max(lastSeen[p]||0,base.acks[p]);for(const a of pending)apply(base,a);pending=[];view=base;scheduleWrite();}
   if(hostState==='me'&&docMissing&&!gotSnap&&canWrite){docMissing=false;gotSnap=true;mode='net';lastDayKey=null;base.ver=0;base.acks={};view=base;scheduleWrite();}
   updateChip();}
 function processActs(peers){if(hostState!=='me'||mode!=='net')return;let ch=false;
-  for(const p of peers){if(p.sameTab||p.kind!=='viewer')continue;const acts=p.presence&&p.presence.acts;if(!Array.isArray(acts))continue;
+  for(const p of peers){if(p.sameTab||p.kind!=='viewer'||!samePeer(p))continue;const acts=p.presence&&p.presence.acts;if(!Array.isArray(acts))continue;
     let seen=Math.max(lastSeen[p.peer]||0,base.acks[p.peer]||0);
     for(const a of acts){if(!a||typeof a.n!=='number'||a.n<=seen)continue;try{apply(base,a);}catch(e){}seen=a.n;ch=true;}
     lastSeen[p.peer]=seen;if(base.acks[p.peer]!==seen){base.acks[p.peer]=seen;ch=true;}}
   if(ch){view=base;scheduleWrite();}}
 const hex=/^#[0-9a-f]{6}$/i;
 function updateRemotes(peers){const alive=new Set();
-  for(const p of peers){if(p.sameTab||p.kind!=='viewer')continue;const pr=p.presence||{};if(typeof pr.x!=='number')continue;alive.add(p.peer);let r=remotes[p.peer];
+  for(const p of peers){if(p.sameTab||p.kind!=='viewer'||!samePeer(p))continue;const pr=p.presence||{};if(typeof pr.x!=='number')continue;alive.add(p.peer);let r=remotes[p.peer];
     if(!r){r=remotes[p.peer]={x:pr.x,y:pr.y,anim:0,swing:0,swn:pr.swn||0};if(pr.nm)toast(String(pr.nm).slice(0,14)+' ha llegado al valle');}
     r.tx=pr.x;r.ty=pr.y;r.d=pr.d|0;r.mv=!!pr.mv;r.map=typeof pr.map==='string'?pr.map.slice(0,12):'farm';r.nm=String(pr.nm||'Invitado').slice(0,14);
     r.shirt=hex.test(pr.sh)?pr.sh:'#888888';r.hair=hex.test(pr.hr)?pr.hr:'#333333';r.sl=pr.sl;r.fo=typeof pr.fo==='string'&&PETSP[pr.fo]?pr.fo:null;
     if(pr.swn&&pr.swn!==r.swn){r.swn=pr.swn;r.swing=.22;r.swingTool='tool:'+(TOOLS.includes(pr.st)||pr.st==='mano'?pr.st:'mano')+':0';}}
   for(const id in remotes)if(!alive.has(id)){toast(remotes[id].nm+' se ha ido');delete remotes[id];}updateChip();}
-function presenceFull(){const f=myFollower();return {x:+P.x.toFixed(2),y:+P.y.toFixed(2),d:P.d,mv:P.mv?1:0,map:me.map,nm:me.nm,sh:me.shirt,hr:me.hair,w:canWrite,sl:mySleep,acts:myActs,swn:swingN,st:P.swingTool||'',fo:f?f.sp:null};}
+function presenceFull(){const f=myFollower();return {x:+P.x.toFixed(2),y:+P.y.toFixed(2),d:P.d,mv:P.mv?1:0,map:me.map,nm:me.nm,sh:me.shirt,hr:me.hair,w:canWrite,sl:mySleep,acts:myActs,swn:swingN,st:P.swingTool||'',fo:f?f.sp:null,f:SLOT};}
 async function connect(){if(!window.claude||typeof window.claude.use!=='function')return;
   try{[db,user]=await Promise.all([claude.use('db'),claude.use('user')]);}catch(e){return;}
   if(!db){updateChip();return;}
@@ -2862,7 +2864,7 @@ async function connect(){if(!window.claude||typeof window.claude.use!=='function
   try{room=await claude.use('room');}catch(e){room=null;}
   let c=null;try{c=user?await user.can('data.write'):null;}catch(e){}canWrite=c!==false;
   if(!room&&!canWrite){db=null;updateChip();return;}
-  farmRef=db.doc('farm/state');
+  farmRef=db.doc(SLOT==='amigos'?'farm/amigos':'farm/state');
   setTimeout(()=>{if(mode!=='net'&&!gotSnap){if(!canWrite)toast('No tienes permiso para guardar en esta granja. Pide a quien la creó que te invite como Editor (no con enlace público). Mientras, puedes moverte, pero no se guarda.','big');else toast('Tu pareja aún no ha abierto la granja. Puedes jugar; se sincronizará cuando entre.');}},12000);
   if(room){room.presence(presenceFull()).catch(()=>{});
     room.onPeers(ch=>{const m=ch.peers.find(p=>p.sameTab);if(m)myPeer=m.peer;updateRemotes(ch.peers);elect();processActs(ch.peers);},()=>{room=null;elect();});}
@@ -2874,9 +2876,9 @@ setInterval(()=>{if(!room||!booted)return;const s=[P.x.toFixed(2),P.y.toFixed(2)
 let hiddenAt=0;
 let wasShared=false;
 document.addEventListener('visibilitychange',()=>{if(!booted)return;if(document.hidden){hiddenAt=Date.now();wasShared=Object.keys(remotes).length>0;saveMe(true);flushNow();}else if(hiddenAt&&(mode==='local'||SLOT==='solo'||(amHost()&&!Object.keys(remotes).length&&!wasShared))){base.dayStart+=Date.now()-hiddenAt;hiddenAt=0;view=base;scheduleWrite();}else hiddenAt=0;});
-setInterval(()=>{if(!booted||!amHost())return;if(SLOT==='pareja'&&mode==='net'&&!gotSnap)return;
+setInterval(()=>{if(!booted||!amHost())return;if(SLOT!=='solo'&&mode==='net'&&!gotSnap)return;
   let all=mySleep===base.day;
-  if(all&&mode==='net'&&room){for(const p of room.peers()){if(p.kind!=='viewer'||p.sameTab)continue;if(!p.presence||p.presence.sl!==base.day)all=false;}}
+  if(all&&mode==='net'&&room){for(const p of room.peers()){if(p.kind!=='viewer'||p.sameTab||!samePeer(p))continue;if(!p.presence||p.presence.sl!==base.day)all=false;}}
   if(all){newDay(base,false);view=base;scheduleWrite();}else if(clockMins(base)>=26*60){newDay(base,true);view=base;scheduleWrite();}},500);
 
 /* ---------- Pantalla de inicio y arranque ---------- */
@@ -2887,16 +2889,16 @@ function swatches(box,list,key){box.innerHTML='';for(const c of list){const b=do
 swatches($('#shirtSw'),SHIRTS,'shirt');swatches($('#hairSw'),HAIRS,'hair');$('#nameIn').value=LOOK.nm||'';
 function slotSummary(slot){const f=LS.get(farmKey(slot))||(slot==='pareja'?LS.get('vc_farm'):null);if(!f)return slot==='solo'?'Nueva partida':'Granja compartida';
   return 'Día '+f.day+' de '+SEASONS[f.season||0].toLowerCase()+', año '+(f.year||1)+' · '+fmt(f.money)+' g';}
-$('#sumSolo').textContent=slotSummary('solo');$('#sumPareja').textContent=slotSummary('pareja');
+$('#sumSolo').textContent=slotSummary('solo');$('#sumPareja').textContent=slotSummary('pareja');if($('#sumAmigos'))$('#sumAmigos').textContent=slotSummary('amigos');
 function boot(slot){if(booted)return;SLOT=slot;LOOK.nm=($('#nameIn').value||'').trim().slice(0,14)||'Granjero';LS.set('vc_look',LOOK);
   me=loadMe(slot);me.nm=LOOK.nm;me.shirt=LOOK.shirt;me.hair=LOOK.hair;
   let b=LS.get(farmKey(slot));if(!b&&slot==='pareja')b=LS.get('vc_farm');base=b?migrate(b):newFarm(slot);base.mode=slot==='solo'?'solo':(base.mode||'pareja');view=base;
   if(me.map==='mine0'||me.map.startsWith('mine:')||me.map.startsWith('volc:')){me.map='mine0';me.x=7.5;me.y=9.9;}
   curMap=mapById(me.map);P.x=me.x;P.y=me.y;if(!canStand(P.x,P.y)){P.x=FARM.spawn.x;P.y=FARM.spawn.y;curMap=FARM;me.map='farm';}
   $('#start').hidden=true;booted=true;renderHotbar();updateHud();updateChip();requestAnimationFrame(frame);connect();
-  if(!me.f.intro){me.f.intro=1;toast(slot==='solo'?'Partida en solitario. Mira el buzón junto a tu casa: hay una carta para ti.':'Partida en pareja. Mira el buzón junto a tu casa: hay una carta para ti.','big');}
+  if(!me.f.intro){me.f.intro=1;toast(slot==='solo'?'Partida en solitario. Mira el buzón junto a tu casa: hay una carta para ti.':slot==='amigos'?'Partida con amigos. Mira el buzón junto a tu casa: hay una carta para ti.':'Partida en pareja. Mira el buzón junto a tu casa: hay una carta para ti.','big');}
   saveMe(true);}
-$('#goSolo').addEventListener('click',()=>boot('solo'));$('#goPareja').addEventListener('click',()=>boot('pareja'));
+$('#goSolo').addEventListener('click',()=>boot('solo'));$('#goPareja').addEventListener('click',()=>boot('pareja'));if($('#goAmigos'))$('#goAmigos').addEventListener('click',()=>boot('amigos'));
 $('#bagBtn').addEventListener('click',openBag);$('#saveBtn').addEventListener('click',saveAll);$('#journalBtn').addEventListener('click',()=>openJournal());$('#craftBtn').addEventListener('click',openCraft);$('#petBtn').addEventListener('click',openRefugio);$('#designBtn').addEventListener('click',()=>designToggle(true));
 base=newFarm('pareja');view=base;
 
@@ -2941,13 +2943,13 @@ function newCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i
 
 /* ---------- Interfaz de la pantalla de inicio ---------- */
 const box=document.createElement('div');box.id='p2pBox';box.hidden=true;box.className='p2p';
-box.innerHTML=`<div class="p2ph"><b>Jugar en pareja sin cuenta</b><button class="btn sm alt" id="p2pBack">Volver</button></div>
+box.innerHTML=`<div class="p2ph"><b>Jugar acompañado</b><button class="btn sm alt" id="p2pBack">Volver</button></div>
  <div class="help">Uno crea la partida y le pasa el código al otro. La granja se guarda en el dispositivo de quien la crea, así que juega siempre con el mismo código.</div>
  <button class="btn" id="p2pHost">Crear partida (yo guardo la granja)</button>
  <label for="p2pCode">O únete con un código<input id="p2pCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC123"></label>
  <button class="btn alt" id="p2pJoin">Unirme</button><div class="meta" id="p2pMsg"></div>`;
 $('#start .card').appendChild(box);
-const old=$('#goPareja'),btn=old.cloneNode(true);old.replaceWith(btn);
+if($('#goAmigos'))$('#goAmigos').remove();const old=$('#goPareja'),btn=old.cloneNode(true);old.replaceWith(btn);btn.querySelector('b').textContent='Jugar con pareja o amigos';const em=btn.querySelector('em');if(em)em.textContent='Crea una granja y comparte el código, o únete con el código de otra persona.';
 btn.querySelector('em').textContent='Con un amigo en otro dispositivo, con un código de partida. No hace falta cuenta.';
 btn.addEventListener('click',()=>{box.hidden=false;$('.slots3').hidden=true;const lc=LS.get('vc_p2p_lastjoin');if(lc)$('#p2pCode').value=lc;});
 $('#p2pBack').onclick=()=>{box.hidden=true;$('.slots3').hidden=false;};
