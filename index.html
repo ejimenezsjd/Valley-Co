@@ -1308,10 +1308,15 @@ function npcState(id){const m=clockMins(view),sc=SCHED[id];const doorPt=b=>{cons
   if(view.rain||view.snow){const shopOpen=TOWN.doors[DOORPOS[id]?DOORPOS[id].join(','):'']&&TOWN.doors[DOORPOS[id].join(',')].open;
     const inShop=shopOpen&&m>=shopOpen[0]&&m<shopOpen[1];const b=inShop?id:(id==='nico'||id==='tomas'?'tomas':DOORPOS[id]?id:'tomas');const p=doorPt(b);return {x:p[0],y:p[1],d:0,mv:false,hidden:true,b};}
   let i=0;for(let j=0;j<sc.length;j++)if(sc[j][0]<=m)i=j;const cur=sc[i],prev=sc[(i-1+sc.length)%sc.length];
-  const pos=e=>typeof e[1]==='string'?doorPt(e[1]):[e[1]+.5,e[2]+.9];const a=pos(prev),b=pos(cur);const k=Math.max(0,Math.min(1,(m-cur[0])/40));
-  const x=a[0]+(b[0]-a[0])*k,y=a[1]+(b[1]-a[1])*k,mv=k<1&&(Math.abs(b[0]-a[0])+Math.abs(b[1]-a[1])>.1);
-  const dx=b[0]-a[0],dy=b[1]-a[1];const d=!mv?0:Math.abs(dx)>Math.abs(dy)?(dx<0?2:3):(dy<0?1:0);
-  return {x,y,d,mv,hidden:typeof cur[1]==='string'&&k>=1,b:typeof cur[1]==='string'?cur[1]:null};}
+  const pos=e=>typeof e[1]==='string'?doorPt(e[1]):[e[1]+.5,e[2]+.9];const a=pos(prev),b=pos(cur);
+  const dx=b[0]-a[0],dy=b[1]-a[1],adx=Math.abs(dx),ady=Math.abs(dy),dist=adx+ady;
+  const run=npcInHurry(id,i);const speed=run?NPC_RUN:NPC_WALK;
+  const el=cur[0]===0?1e9:(Date.now()-(view.dayStart+(cur[0]-360)/10*7000))/1000;
+  const trav=Math.max(0,el*speed);let x=b[0],y=b[1],d=0,mv=false;
+  if(trav<dist&&dist>.1){mv=true;if(trav<adx){x=a[0]+Math.sign(dx)*trav;y=a[1];d=dx<0?2:3;}else{x=b[0];y=a[1]+Math.sign(dy)*(trav-adx);d=dy<0?1:0;}}
+  return {x,y,d,mv,run:mv&&run,hidden:typeof cur[1]==='string'&&!mv,b:typeof cur[1]==='string'?cur[1]:null};}
+const NPC_WALK=1.6,NPC_RUN=3.4;
+function npcInHurry(id,i){if(id==='nico')return hash(i,dayIdx(view),11)%2===0;return hash(id.length*7+i,dayIdx(view),13)%6===0;}
 function npcWhere(id){const s=npcState(id);if(s.fest)return 'en la plaza, celebrando el festival';if(s.hidden)return 'en '+BNAME[s.b];if(s.y>=22)return 'junto al río';if(s.x>=16&&s.x<=29&&s.y>=8&&s.y<=19)return 'en la plaza';if(s.mv)return 'paseando por el pueblo';return 'en el pueblo';}
 function npcInFront(){if(curMap!==TOWN)return null;const fx=P.x+DIRS[P.d][0]*.8,fy=P.y-.3+DIRS[P.d][1]*.8;let best=null,bd=1.3;
   for(const id in NPCS){const s=npcState(id);if(s.hidden)continue;const d=Math.hypot(s.x-fx,s.y-.3-fy);if(d<bd){bd=d;best=id;}}return best;}
@@ -1544,8 +1549,9 @@ function update(dt){
   if(joy.id!==null){const m=Math.hypot(joy.vx,joy.vy);if(m>.22){vx=joy.vx;vy=joy.vy;}}
   const m=Math.hypot(vx,vy),frozen=overlayOpen()||FISH_UI.active;P.mv=m>0&&!frozen;
   if(P.mv&&fishing.state)fishCancel();
-  if(P.mv){vx/=Math.max(1,m);vy/=Math.max(1,m);const sp=4.6*dt*(me.energy<=0?.6:1)*(me.buff&&absMins(view)<me.buff?1.35:1)*(1+followAbil('velocidad')*.08);
-    const nx=P.x+vx*sp;if(canStand(nx,P.y))P.x=nx;const ny=P.y+vy*sp;if(canStand(P.x,ny))P.y=ny;P.d=Math.abs(vx)>Math.abs(vy)?(vx<0?2:3):(vy<0?1:0);P.anim+=dt*8;}
+  if(P.mv){const jm=joy.id!==null?Math.min(1,Math.max(0,(m-.22)/.7)):(keys['shift']?1:.55);vx/=Math.max(1,m);vy/=Math.max(1,m);const base=2.5+2.2*jm;
+    const sp=base*dt*(me.energy<=0?.6:1)*(me.buff&&absMins(view)<me.buff?1.3:1)*(1+followAbil('velocidad')*.08);
+    const nx=P.x+vx*sp;if(canStand(nx,P.y))P.x=nx;const ny=P.y+vy*sp;if(canStand(P.x,ny))P.y=ny;P.d=Math.abs(vx)>Math.abs(vy)?(vx<0?2:3):(vy<0?1:0);P.anim+=dt*base*1.9;}
   if(P.kx||P.ky){const nx=P.x+P.kx*dt,ny=P.y+P.ky*dt;if(canStand(nx,P.y))P.x=nx;if(canStand(P.x,ny))P.y=ny;P.kx*=.8;P.ky*=.8;if(Math.abs(P.kx)+Math.abs(P.ky)<.1)P.kx=P.ky=0;}
   if(P.mv&&!canStand(P.x,P.y)){P.x+=vx*4.6*dt;P.y+=vy*4.6*dt;P.x=Math.max(.6,Math.min(curMap.w-.6,P.x));P.y=Math.max(1,Math.min(curMap.h-.2,P.y));}
   P.inv=Math.max(0,P.inv-dt);if(P.swing>0)P.swing-=dt;
@@ -1573,7 +1579,7 @@ function render(){
       else ents.push({y:y+.95,f:()=>drawDebris(ctx,x*T,y*T,o,view.season)});}
     if(animalsOut())for(const an of view.animals){const a=apos[an.id];if(a)ents.push({y:a.y,f:()=>drawAnimal(ctx,Math.round(a.x*T),Math.round(a.y*T),an.k,a.anim,a.d)});}}
   if(M===TOWN){for(const f of townForage()){const [x,y]=f.k.split(',').map(Number);if(vis(x,y))ents.push({y:y+.9,f:()=>ctx.drawImage(iconCanvas(f.id),x*T+2,y*T+2,12,12)});}
-    for(const id in NPCS){const s=npcState(id);if(s.hidden)continue;const a=npcAnim[id]=(npcAnim[id]||0)+(s.mv?.13:0);const N=NPCS[id];
+    for(const id in NPCS){const s=npcState(id);if(s.hidden)continue;const a=npcAnim[id]=(npcAnim[id]||0)+(s.mv?(s.run?.2:.09):0);const N=NPCS[id];
       ents.push({y:s.y,f:()=>{drawPerson(ctx,Math.round(s.x*T),Math.round(s.y*T),s.d,a,s.mv,N,0,null);
         const story=storyCur(view);if(story&&story.k==='talk'&&story.npc===id){R(ctx,Math.round(s.x*T)-2,Math.round(s.y*T)-32,4,7,'#f0c040');R(ctx,Math.round(s.x*T)-2,Math.round(s.y*T)-23,4,3,'#f0c040');}}});}}
   if(M===ISLAND)for(const f of isleForage())if(vis(f.x,f.y))ents.push({y:f.y+.9,f:()=>ctx.drawImage(iconCanvas(f.id),f.x*T+2,f.y*T+2,12,12)});
@@ -1876,7 +1882,7 @@ function skillTip(k){const l=lvl(k);return {cultivo:'Más cosechas de calidad y 
   mineria:'Más menas por roca y recetas de mina.',pesca:'Barra de pesca más grande y peces de más calidad.',combate:'+5 de salud por nivel y más daño.'}[k]+(l<10?' Siguiente nivel: '+fmt(XPL[l])+' xp.':'');}
 
 /* ---------- Vecinos: diálogo con IA ---------- */
-const chatLog={};let sampleFn=undefined;
+let sampleFn=undefined;
 function portrait(id){const k='face_'+id;if(ICON[k])return ICON[k];const N=NPCS[id];const [c,g]=cv(24,24);R(g,0,0,24,24,shade(N.shirt,1.5));
   drawPerson(g,12,27,0,0,false,N,0,null);ICON[k]=c.toDataURL();return ICON[k];}
 function addFriend(id,n){const before=heartsOf(me.fr[id]);me.fr[id]=Math.max(0,Math.min(2500,(me.fr[id]||0)+n));const after=heartsOf(me.fr[id]);
@@ -1885,46 +1891,104 @@ function giftReaction(id,key){const N=NPCS[id];const m=p=>matchKey(p,key);const 
   let pts=20,txt='Gracias.',kind='neutral';if(N.loves.some(m)){pts=80;txt='¡Me encanta! ¿Cómo lo sabías?';kind='love';(me.hearts[id]=me.hearts[id]||{}).loves=1;}
   else if(N.hates.some(m)){pts=-40;txt='Uf... no, gracias.';kind='hate';}else if(N.likes.some(m)){pts=45;txt='¡Qué detalle! Me gusta mucho.';kind='like';}
   return {pts:bday?pts*8:pts,txt:(bday?'¡Y en mi cumpleaños! ':'')+txt,kind,bday};}
-function openTalk(id){const N=NPCS[id],first=!me.met[id];me.met[id]=1;const di=dayIdx(view);
+function chatOf(id){me.chat=me.chat||{};return me.chat[id]=me.chat[id]||[];}
+function memOf(id){me.npcMem=me.npcMem||{};return me.npcMem[id]||'';}
+function openTalk(id){const N=NPCS[id],first=!me.met[id];me.met[id]=1;const di=dayIdx(view);const lastDay=me.talked[id];
   if(me.talked[id]!==di){me.talked[id]=di;addFriend(id,20+(view.proj&&view.proj.jardines?10:0));}
   const S=storyCur(view);if(S&&S.k==='talk'&&S.npc===id)me.talkStory=S.id;
-  chatLog[id]=chatLog[id]||[];const intro=first?'['+me.nm+' se presenta por primera vez: acaba de llegar para cuidar la granja de su abuela Rosa]':'['+me.nm+' se acerca a saludarte]';
-  renderTalk(id,'…');aiSay(id,intro,null);saveMe();}
+  const again=lastDay===di?'otra vez hoy':lastDay===di-1?', como ayer':'';
+  const intro=first?'['+me.nm+' se presenta por primera vez: acaba de llegar para cuidar la granja de su abuela Rosa]':'['+me.nm+' se acerca a saludarte'+(again?' '+again:'')+']';
+  renderTalk(id,'…');aiSay(id,intro,null,{greet:true,first,again});saveMe();}
 function renderTalk(id,text,busy){const N=NPCS[id],p=me.fr[id]||0,hh=heartsOf(p);const gifts=Object.keys(me.inv).filter(k=>me.inv[k]>0&&!['historia'].includes(catOf(k)));
-  const g=me.gifted[id]||{};const wk=Math.floor(dayIdx(view)/7);const gw=g.w===wk?g.n:0;const today=g.d===dayIdx(view);
+  const g=me.gifted[id]||{};const wk=Math.floor(dayIdx(view)/7);const gw=g.w===wk?g.n:0;const today=g.d===dayIdx(view);const hasMem=chatOf(id).length>2||memOf(id);
   let h=`<div class="ph"><div class="who"><img class="face big" src="${portrait(id)}" alt=""><div><h2>${esc(N.n)}</h2><div class="hearts">${'♥'.repeat(hh)}<span>${'♡'.repeat(10-hh)}</span></div></div></div><button class="x" data-a="close" aria-label="Cerrar">✕</button></div>
    <div class="body"><div class="speech" id="speech">${esc(text)}</div>
-   <form id="chatForm" class="chat"><input id="chatIn" maxlength="140" autocomplete="off" placeholder="${me.ai&&sampleFn!==null?'Escríbele algo…':'Activa la IA en el diario para escribir'}" ${me.ai&&sampleFn!==null?'':'disabled'}><button class="btn" ${busy?'disabled':''}>Decir</button></form>
+   <form id="chatForm" class="chat"><input id="chatIn" maxlength="160" autocomplete="off" placeholder="Escríbele algo…"><button class="btn" ${busy?'disabled':''}>Decir</button></form>
+   ${hasMem?`<button class="btn sm alt" data-a="forget" data-id="${id}" style="align-self:flex-start">Pedirle que olvide lo que hemos hablado</button>`:''}
    <h3>Regalar ${today?'(ya le has regalado algo hoy)':gw>=2?'(2 regalos por semana)':''}</h3><div class="gifts">`;
   for(const k of gifts.slice(0,60))h+=`<button class="islot" data-a="gift" data-id="${id}" data-k="${esc(k)}" ${today||gw>=2?'disabled':''} title="${esc(nameOf(k))}">${img(k)}<span>${esc(nameOf(k))}</span></button>`;
   if(!gifts.length)h+='<div class="meta">No llevas nada para regalar.</div>';
   openPanel(h+'</div></div>',{npc:id});
-  $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#chatIn').value.trim();if(!v)return;$('#chatIn').value='';aiSay(id,me.nm+': «'+v+'»',null);});}
+  $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#chatIn').value.trim().slice(0,160);if(!v)return;$('#chatIn').value='';aiSay(id,me.nm+': «'+v+'»',null,{said:v});});}
 A.gift=d=>{const id=d.id,k=d.k;if(!me.inv[k])return;festivalGift(id,k);const r=giftReaction(id,k);invTake(me.inv,k,1);const wk=Math.floor(dayIdx(view)/7);const g=me.gifted[id]||{};
   me.gifted[id]={w:wk,n:(g.w===wk?g.n:0)+1,d:dayIdx(view)};addFriend(id,r.pts);finish(true);
-  renderTalk(id,r.txt);aiSay(id,'['+me.nm+' te regala '+nameOf(k)+'. '+(r.kind==='love'?'Es uno de tus regalos favoritos':r.kind==='hate'?'No te gusta nada':r.kind==='like'?'Te gusta':'Te es indiferente')+(r.bday?'. Hoy es tu cumpleaños':'')+']',r.txt);};
+  renderTalk(id,r.txt);aiSay(id,'['+me.nm+' te regala '+nameOf(k)+'. '+(r.kind==='love'?'Es uno de tus regalos favoritos':r.kind==='hate'?'No te gusta nada':r.kind==='like'?'Te gusta':'Te es indiferente')+(r.bday?'. Hoy es tu cumpleaños':'')+']',r.txt,{gift:r.kind});};
+function forgetNpc(id){if(me.chat)me.chat[id]=[];if(me.npcMem)delete me.npcMem[id];saveMe();}
+A.forget=d=>{const id=d.id;forgetNpc(id);const L=FORGET_LINES[id]||FORGET_LINES._;renderTalk(id,L[Math.floor(Math.random()*L.length)]);};
+const FORGET_LINES={_:['¿Olvidar el qué? Yo no he oído nada. Literal, borrado.','Hecho. Formateado. Si alguien pregunta, nunca hemos hablado.','Vale, borrón y cuenta nueva. Aunque mi cara de póker no es tan buena.'],
+  nico:['¿Olvidar? ¡Vale! Ya no me acuerdo de nada. ¿De qué hablábamos? ¡Ah, no, que lo he olvidado!'],
+  bruno:['Hmf. Olvidado. Tampoco era para tanto.'],sol:['Lo que pasa en la taberna se queda en la taberna. Y esto también.']};
 function npcRules(id){const N=NPCS[id],hh=heartsOf(me.fr[id]),S=storyCur(view),m=clockMins(view);const bday=view.season===N.bday[0]&&view.day===N.bday[1];
-  const tone=hh<2?'aún os estáis conociendo, trato cordial':hh<5?'os lleváis bien':hh<8?'sois buenos amigos':'sois amigos íntimos, con mucha confianza';
-  return `Eres ${N.n}, ${N.rol}, en un pueblo de un valle agrícola de un videojuego de granja acogedor. Personalidad: ${N.pers}.
-Habla en español de España, natural y cercano, en primera persona y en presente. No rompas nunca el personaje ni menciones que eres una IA o un juego. Contenido apto para todos los públicos y sin romance.
+  const tone=hh<2?'aún os estáis conociendo, así que vacilas con algo de cautela':hh<5?'os lleváis bien y ya hay confianza para piques':hh<8?'sois buenos amigos y os vaciláis sin piedad':'sois amigos íntimos: confianza total, bromas internas y vacile constante';
+  const kid=id==='nico';const mem=memOf(id);
+  const humor=kid?`Eres un niño de 10 años: hablas como un niño de hoy, con humor infantil, travieso y lleno de memes de patio de colegio y de vídeos para niños. Nada picante, nada de dobles sentidos ni temas de adultos; si ${me.nm} intenta ir por ahí, le cambias de tema con una ocurrencia de niño.`
+    :`Tienes mucha chispa. Sigue el rollo a ${me.nm} en lo que proponga (bromas, cotilleos, juegos de rol, retos, tonterías), vacila con cariño y contesta con ingenio: ironía, sarcasmo amable, piques, indirectas y algún doble sentido pícaro o coqueteo en broma, sin llegar nunca a nada sexual explícito ni a ofender a colectivos. Usa humor actual y memes de internet de 2025 y 2026 cuando encaje y de forma natural, sin meterlos en cada frase (expresiones como «no me renta», «red flag», «aura», «en plan», «POV:», «literal», «mucho texto», «está chetado», «cringe», «me representa», «es que no puedo», «ni tan mal», «qué locura», «tremendo»). Nunca pierdas tu personalidad.`;
+  return `Eres ${N.n}, ${N.rol}, en un pueblo de un valle agrícola de un videojuego de granja. Personalidad: ${N.pers}.
+Habla en español de España, coloquial y natural, en primera persona. No rompas nunca el personaje ni digas que eres una IA o un juego.
+${humor}
 Situación: ${WEEKDAYS[weekday(view)]}, día ${view.day} de ${SEASONS[view.season].toLowerCase()} del año ${view.year}, son las ${hm(m)}, ${view.rain?'llueve':view.snow?'nieva':'hace buen tiempo'}. Estás ${npcWhere(id)}.
 Hablas con ${me.nm}, que heredó la granja de su abuela Rosa${Object.keys(remotes).length?' y la lleva junto a su pareja':''}. Vuestra amistad: ${hh}/10 corazones (${tone}).
+Lo que recuerdas de conversaciones anteriores con ${me.nm}: ${mem||'todavía nada importante'}. Saca esos recuerdos cuando venga a cuento (bromas internas, cosas que te contó, promesas).
+Si ${me.nm} te pide que olvides algo o lo que habéis hablado, acepta con gracia y añade al final de tu respuesta exactamente la etiqueta [OLVIDAR].
 La villa tiene una valoración de ${villaScore(view)} puntos (${villaLevel(view).n})${Object.keys(view.proj||{}).length?'; proyectos del pueblo terminados: '+Object.keys(view.proj).map(p=>(PROJECTS[p]||{}).n).filter(Boolean).join(', '):''}.
 Lo que pasa en el valle: la misión actual es «${S.t}» (${S.d}). Salas del Centro Cívico restauradas: ${roomsDone(view)} de ${ROOMS.length}. La Fuente de la plaza está ${view.fuente?'restaurada y brotando de nuevo':'seca desde hace años'}. Lo más hondo que ${me.nm} ha bajado en la mina: piso ${me.stats.deep||0}.
 Te encantan: ${N.loves.map(x=>x.endsWith(':*')?ART[x.split(':')[0]][0].trim().toLowerCase()+' de cualquier tipo':nameOf(x).toLowerCase()).join(', ')}.${bday?' Hoy es tu cumpleaños.':''}
-Si viene a cuento, da pistas útiles sobre la misión actual o sobre el valle, sin inventar mecánicas.
-Responde solo con lo que dices en voz alta, sin comillas ni acotaciones, en una o dos frases (máximo 220 caracteres).`;}
-async function aiSay(id,userTurn,fallback){const log=chatLog[id];log.push({role:'user',content:userTurn});if(log.length>10)log.splice(0,log.length-10);
-  const N=NPCS[id];const scripted=()=>{const L=N.lines.concat(view.rain?['Vaya día de lluvia, ¿eh?']:[],view.fuente?['¡La Fuente vuelve a brotar! Aún no me lo creo.']:[]);return fallback||L[Math.floor(Math.random()*L.length)];};
-  if(!me.ai){showSpeech(id,scripted());return;}
+Si te preguntan, da pistas útiles sobre la misión o el valle, sin inventar mecánicas.
+Los textos entre corchetes describen lo que hace ${me.nm}; el resto es lo que te dice. Responde solo con lo que dices en voz alta, sin comillas ni acotaciones, en una a tres frases (máximo 280 caracteres).`;}
+async function aiSay(id,userTurn,fallback,opt){opt=opt||{};const log=chatOf(id);log.push({role:'user',content:userTurn.slice(0,260)});
+  const finishReply=t=>{let txt=String(t||'…').trim().replace(/^["«]|["»]$/g,'');const forget=/\[OLVIDAR\]/i.test(txt);txt=txt.replace(/\s*\[OLVIDAR\]\s*/ig,' ').trim().slice(0,320);
+    if(forget){forgetNpc(id);}else{log.push({role:'assistant',content:txt.slice(0,260)});trimMem(id);}saveMe();showSpeech(id,txt);if(forget)renderTalk(id,txt);};
+  const offline=()=>finishReply(fallback&&!opt.said?fallback:offlineReply(id,opt));
+  if(!me.ai)return offline();
   if(sampleFn===undefined){try{sampleFn=window.claude&&claude.use?await claude.use('sample'):null;}catch(e){sampleFn=null;}}
-  if(!sampleFn){showSpeech(id,scripted());return;}
+  if(!sampleFn)return offline();
   const ctl=new AbortController();panelCtx.abort=ctl;const sp=$('#speech');if(sp&&!fallback)sp.textContent='…';
-  try{while(log.length&&log[0].role!=='user')log.shift();
-    const {text}=await sampleFn([{role:'user',content:npcRules(id)},...log],{modelTier:'quick',cache:false,signal:ctl.signal,onText:({text})=>{const s=$('#speech');if(s&&panelCtx.npc===id)s.textContent=text;}});
-    const t=text.trim().replace(/^["«]|["»]$/g,'').slice(0,300);log.push({role:'assistant',content:t});showSpeech(id,t);}
-  catch(e){if(e&&e.code==='cancelled')return;if(e&&['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(e.code))sampleFn=null;
-    log.pop();showSpeech(id,scripted());if(e&&e.code==='rate_limited')toast('Los vecinos necesitan un respiro. Prueba en un rato.');}}
+  const turns=log.slice(-14);while(turns.length&&turns[0].role!=='user')turns.shift();
+  try{const {text}=await sampleFn([{role:'user',content:npcRules(id)},...turns],{modelTier:'quick',cache:false,signal:ctl.signal,onText:({text})=>{const s=$('#speech');if(s&&panelCtx.npc===id)s.textContent=text.replace(/\[OLVIDAR\]/ig,'');}});
+    finishReply(text);}
+  catch(e){if(e&&e.code==='cancelled'){log.pop();return;}if(e&&['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(e.code))sampleFn=null;
+    log.pop();if(e&&e.code==='rate_limited')toast('Los vecinos necesitan un respiro. Prueba en un rato.');offline();}}
+let memBusy=false;
+async function trimMem(id){const log=chatOf(id);if(log.length<=18||memBusy)return;const old=log.splice(0,10);
+  if(!sampleFn){me.npcMem=me.npcMem||{};const said=old.filter(t=>t.role==='user'&&!t.content.startsWith('[')).map(t=>t.content.replace(/^[^«]*«|»$/g,'')).slice(-3);
+    if(said.length)me.npcMem[id]=('Me dijo: '+said.join(' / ')).slice(0,400);return;}
+  memBusy=true;const N=NPCS[id];
+  try{const {text}=await sampleFn(`Eres la memoria de ${N.n}, un personaje de un juego de granja. Resume en un máximo de 400 caracteres, en tercera persona, lo que ${N.n} debe recordar de sus charlas con ${me.nm}: datos personales, gustos, bromas internas, apodos, promesas y temas pendientes. Ignora los saludos.
+Memoria anterior: ${memOf(id)||'ninguna'}
+Conversación:
+${old.map(t=>(t.role==='user'?'':N.n+': ')+t.content).join('\n')}
+Devuelve solo el resumen.`,{modelTier:'quick',cache:false});
+    me.npcMem=me.npcMem||{};me.npcMem[id]=text.trim().slice(0,450);saveMe();}catch(e){}memBusy=false;}
+function offlineReply(id,opt){const N=NPCS[id],nm=me.nm||'granjero',pick=a=>a[Math.floor(Math.random()*a.length)];const L=NPC_FUN[id]||[];
+  if(opt.gift)return null;
+  if(opt.greet){const log=chatOf(id);const past=log.filter(t=>t.role==='user'&&t.content.includes('«')).slice(-6);
+    if(opt.first)return pick(['¡Anda, carne fresca en el valle! Soy '+N.n+'. Bienvenida a la granja de Rosa, '+nm+'.','Así que tú eres '+nm+'. Rosa hablaba tanto de ti que ya tenías aura antes de llegar.']);
+    if(past.length&&Math.random()<.4){const q=past[Math.floor(Math.random()*past.length)].content.replace(/^[^«]*«|»$/g,'');return pick(['Sigo dándole vueltas a lo que me dijiste: «'+q+'». Qué locura.','Oye, ¿lo de «'+q+'» iba en serio o era de vacile?','Desde que me dijiste «'+q+'» no he vuelto a ser el mismo. Bueno, sí, pero queda dramático.']);}
+    if(opt.again==='otra vez hoy')return pick(['¿Otra vez tú? Me vas a gastar, '+nm+'.','Dos visitas en un día... esto ya es red flag o amistad, aún no lo tengo claro.','Si vienes tanto te voy a cobrar alquiler.']);
+    const extra=(view.rain?['Con esta lluvia hasta los peces llevan paraguas.']:[]).concat(view.fuente?['¡La Fuente vuelve a brotar! Aún no me lo creo.']:[]);
+    return pick(L.concat(N.lines,extra));}
+  const t=(opt.said||'').toLowerCase();
+  const R=[[/olvid|borra (eso|todo|lo)|no te acuerdes/,()=>{forgetNpc(id);return pick(FORGET_LINES[id]||FORGET_LINES._);}],
+   [/^(hola|buenas|hey|ey|qué tal|que tal|holi)/,()=>pick(['¡Buenas, '+nm+'! ¿Qué se cuece hoy?','Holi. ¿Vienes a cotillear o a trabajar? Porque lo primero se me da mejor.','Ey. Tienes cara de haber madrugado. Respeto.'])],
+   [/chiste|algo gracioso|hazme reír|meme/,()=>pick(id==='nico'?['¿Sabes qué le dijo una chirivía a otra? ¡Nada, las chirivías no hablan! Jajaja.','POV: eres una gallina y ves a mi abuelo intentando correr.']:['¿Por qué el espantapájaros ganó un premio? Porque era sobresaliente en su campo. Ya me voy.','POV: plantas fresas en otoño y esperas un milagro.','Mi vida amorosa es como el invernadero de Rosa: en ruinas, pero con potencial.'])],
+   [/guap|te quiero|cita|lig|amor|bes/,()=>id==='nico'?pick(['¡Puaj! ¡Qué asco! Mejor hablemos de piedras brillantes.','Eso es de mayores. ¿Has visto algún murciélago en la mina?']):pick(['Uy, uy, uy... ¿me estás tirando la caña? Porque con esa caña no pescas ni una carpa.','Para ligar conmigo primero tráeme algo que me encante. Pista: no es alga.','Qué aura tienes hoy, '+nm+'. Pero no te emociones.','Eso díselo a tu pareja, que luego me pilla y no me renta.'])],
+   [/aburr|cansad|sueño|reventad/,()=>pick(['Normal, llevas todo el día dándole a la azada. Vete a dormir, que mañana los cultivos no se riegan solos.','Mood. Literal, me representa.','Un café en la taberna y vuelves a estar chetado.'])],
+   [/mina|piso|murci|monstru|baba/,()=>pick(['La mina no es para débiles. Lleva comida y no te hagas el héroe.','Si bajas al piso 100 y vuelves, te invito a algo. Si no vuelves, me quedo tu regadera.'])],
+   [/pesc|caña|pez|peces|río/,()=>pick(['Los peces muerden mejor con lluvia. Abril lo sabe todo, es un poco su aura.','¿Pescar? Yo una vez pesqué una bota. Fue mi mejor día.'])],
+   [/dinero|pasta|rico|oro|pobre/,()=>pick(['¿Dinero? Vende vino, que el vino cotiza más que yo.','Ser granjero y rico a la vez... eso es más raro que un pez luna.'])],
+   [/gracias|vale|ok|genial/,()=>pick(['De nada. Me lo apunto para cuando necesite un favor.','Ni tan mal, ¿eh?','A mandar.'])],
+   [/adiós|adios|me voy|hasta luego|chao|nos vemos/,()=>pick(['¡Hasta luego, '+nm+'! No pises mis flores.','Venga, nos vemos. Y riega, que te veo venir.','Chao. Se te echará de menos un poco. Poco.'])],
+   [/\?$/,()=>pick(['Buena pregunta. Mala respuesta: ni idea.','Eso pregúntaselo a Pía, que se entera de todo antes que nadie.','Mucho texto para un martes, '+nm+'.'])]];
+  for(const [re,f] of R)if(re.test(t))return f();
+  return pick(['Ajá. Te sigo el rollo, pero que conste que no entiendo nada.','Literal lo que yo pensaba. Bueno, más o menos.','Me lo apunto en mi diario de cosas raras que dice '+nm+'.','No sé si reír o preocuparme. Me río por si acaso.'].concat(L.slice(0,2)));}
+const NPC_FUN={
+ pia:['Hoy han venido tres personas a preguntar por ti. Bueno, una. Bueno, me lo he inventado, pero queda bien.','Las semillas de esta temporada están chetadas, te lo digo yo.','Si te enteras de algún cotilleo, aquí estoy. Por el bien del pueblo, claro.'],
+ bruno:['Hmf. Si vienes a hablar del tiempo, la puerta está ahí.','Mi forja tiene más aura que la mitad del pueblo.','No soy borde, soy eficiente. Hay diferencia.'],
+ marta:['Si me traes madera te construyo hasta un castillo. Si no, una caseta de perro.','POV: Marta ve un árbol y piensa en estanterías.','Mi plan de vida: construir, explorar la mina y no hablar con Bruno antes del café.'],
+ sol:['Esta noche toco en la taberna. Spoiler: la canción va sobre ti.','La cerveza no resuelve problemas, pero tampoco lo hace la leche.','Tengo un chiste sobre el Centro Cívico, pero aún no está restaurado.'],
+ nico:['¡Hoy he visto una criatura brillante! O era una lata. ¡Pero brillaba!','Mi abuelo dice que soy un torbellino. Yo creo que soy un tornado.','¿Sabías que las piedras también tienen sentimientos? Bueno, igual no.'],
+ abril:['El río hoy está de buen humor. Yo regular.','Los peces no hablan, pero escuchan. Como yo.','Hay días en que pescar es meditar. Hoy es de los otros.'],
+ tomas:['¡Mi granjero favorito! Bueno, eres el único, pero cuenta igual.','En mis tiempos la plaza tenía más vida. Y yo más pelo.','Rosa decía que la paciencia es el mejor abono. Yo prefiero el abono.']};
 function showSpeech(id,t){const s=$('#speech');if(s&&panelCtx.npc===id)s.textContent=t;}
 
 /* ---------- Comprobaciones periódicas: historia, recompensas ---------- */
@@ -2650,7 +2714,8 @@ let lastSent='';
 setInterval(()=>{if(!room||!booted)return;const s=[P.x.toFixed(2),P.y.toFixed(2),P.d,P.mv,me.map].join('|');if(s===lastSent)return;lastSent=s;
   room.presence({x:+P.x.toFixed(2),y:+P.y.toFixed(2),d:P.d,mv:P.mv?1:0,map:me.map}).catch(()=>{});},90);
 let hiddenAt=0;
-document.addEventListener('visibilitychange',()=>{if(!booted)return;if(document.hidden){hiddenAt=Date.now();saveMe(true);flushNow();}else if(hiddenAt&&(mode==='local'||SLOT==='solo')){base.dayStart+=Date.now()-hiddenAt;hiddenAt=0;view=base;scheduleWrite();}});
+let wasShared=false;
+document.addEventListener('visibilitychange',()=>{if(!booted)return;if(document.hidden){hiddenAt=Date.now();wasShared=Object.keys(remotes).length>0;saveMe(true);flushNow();}else if(hiddenAt&&(mode==='local'||SLOT==='solo'||(amHost()&&!Object.keys(remotes).length&&!wasShared))){base.dayStart+=Date.now()-hiddenAt;hiddenAt=0;view=base;scheduleWrite();}else hiddenAt=0;});
 setInterval(()=>{if(!booted||!amHost())return;if(SLOT==='pareja'&&mode==='net'&&!gotSnap)return;
   let all=mySleep===base.day;
   if(all&&mode==='net'&&room){for(const p of room.peers()){if(p.kind!=='viewer'||p.sameTab)continue;if(!p.presence||p.presence.sl!==base.day)all=false;}}
@@ -2707,7 +2772,7 @@ function makeAdapter(isHost,code,sendAll){
     else if(m.t==='pres'&&typeof m.peer==='string'&&m.peer!==myId){peers[m.peer]=m.p||{};fire();}
     else if(m.t==='leave'&&peers[m.peer]){delete peers[m.peer];fire();}
     else if(m.t==='hello'&&!isHost){hostId=m.host;if(m.farm){store['farm/state']=m.farm;persist();notify('farm/state');}for(const p in (m.pres||{}))if(p!==myId)peers[p]=m.pres[p];fire();}}
-  return {api:{use:async n=>({db,room,user}[n]||null)},receive,myId,helloData:()=>({t:'hello',host:myId,farm:store['farm/state']||null,pres:Object.assign({[myId]:clone(myPres)},clone(peers))}),dropPeer:id=>{if(id==='host')id=hostId;if(peers[id]){delete peers[id];fire();}}};}
+  return {api:{use:async n=>({db,room,user}[n]||null)},receive,myId,helloData:()=>({t:'hello',host:myId,farm:store['farm/state']||null,pres:Object.assign({[myId]:clone(myPres)},clone(peers))}),dropPeer:id=>{if(id==='host')id=hostId;if(peers[id]){delete peers[id];fire();}},resendPres:()=>sendAll({t:'pres',peer:myId,p:clone(myPres)})};}
 
 let peerLib=null;
 function loadPeer(){return new Promise((ok,ko)=>{if(window.Peer)return ok(window.Peer);const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
@@ -2727,31 +2792,39 @@ btn.querySelector('em').textContent='Con un amigo en otro dispositivo, con un c�
 btn.addEventListener('click',()=>{box.hidden=false;$('.slots3').hidden=true;const lc=LS.get('vc_p2p_lastjoin');if(lc)$('#p2pCode').value=lc;});
 $('#p2pBack').onclick=()=>{box.hidden=true;$('.slots3').hidden=false;};
 const msg=t=>{$('#p2pMsg').textContent=t;};
-let adapter=null,peer=null;
-async function startHost(){msg('Conectando…');let Peer;try{Peer=await loadPeer();}catch(e){return msg('No hay conexión a internet para jugar en pareja.');}
+let adapter=null,peer=null,busy=false;
+function lock(on){busy=on;$('#p2pHost').disabled=on;$('#p2pJoin').disabled=on;}
+async function startHost(){if(busy)return;lock(true);msg('Conectando…');let Peer;try{Peer=await loadPeer();}catch(e){lock(false);return msg('No hay conexión a internet para jugar en pareja.');}
   let code=LS.get('vc_p2p_mycode');if(!code){code=newCode();LS.set('vc_p2p_mycode',code);}
   const conns=new Map();const sendAll=(m,except)=>{for(const [id,c] of conns)if(id!==except&&c.open)try{c.send(m);}catch(e){}};
   adapter=makeAdapter(true,code,sendAll);
-  peer=new Peer(PREFIX+code);
-  peer.on('open',()=>{window.claude=adapter.api;msg('');boot('pareja');showCode(code);});
-  peer.on('error',e=>{if(e&&e.type==='unavailable-id'){msg('Este código sigue ocupado. Espera unos segundos y vuelve a intentarlo.');}else if(!booted)msg('Error de conexión: '+(e&&e.type||'desconocido')+'.');else toast('Problema de conexión con tu amigo.');});
-  peer.on('connection',c=>{c.on('open',()=>{conns.set(c.peer,c);try{c.send(adapter.helloData());}catch(e){}});
-    c.on('data',m=>{if(m&&m.t==='pres'){c._uid=m.peer;}adapter.receive(m);if(m&&(m.t==='pres'))sendAll(m,c.peer);});
-    c.on('close',()=>{conns.delete(c.peer);if(c._uid){adapter.dropPeer(c._uid);sendAll({t:'leave',peer:c._uid});}});});
-  peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});}
-async function startJoin(){const code=($('#p2pCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length<4)return msg('Escribe el código que te ha dado tu amigo.');
-  LS.set('vc_p2p_lastjoin',code);msg('Conectando…');let Peer;try{Peer=await loadPeer();}catch(e){return msg('No hay conexión a internet para jugar en pareja.');}
-  let conn=null;const send=m=>{if(conn&&conn.open)try{conn.send(m);}catch(e){}};
-  adapter=makeAdapter(false,'g_'+code,send);peer=new Peer();let started=false;
-  const fail=t=>{if(!started)msg(t);else toast(t);};
-  peer.on('open',()=>{conn=peer.connect(PREFIX+code,{reliable:true});
-    const to=setTimeout(()=>{if(!started)msg('No encuentro esa partida. Comprueba el código y que tu amigo tenga el juego abierto.');},12000);
-    conn.on('data',m=>{adapter.receive(m);if(m&&m.t==='hello'&&!started){started=true;clearTimeout(to);window.claude=adapter.api;msg('');boot('pareja');}});
-    conn.on('close',()=>{toast('Se ha cortado la conexión con la partida. Vuelve a abrir el juego para reconectar.','big');adapter.dropPeer('host');});
-    conn.on('error',()=>fail('No se pudo conectar con la partida.'));});
-  peer.on('error',e=>fail(e&&e.type==='peer-unavailable'?'No encuentro esa partida. Comprueba el código y que tu amigo tenga el juego abierto.':'Error de conexión: '+(e&&e.type||'desconocido')+'.'));}
+  let tries=0;const open=()=>{peer=new Peer(PREFIX+code);
+    peer.on('open',()=>{if(booted)return;window.claude=adapter.api;msg('');boot('pareja');showCode(code);});
+    peer.on('error',e=>{const t=e&&e.type;if(t==='unavailable-id'&&!booted){if(++tries<6){msg('Recuperando tu código de partida… ('+tries+')');try{peer.destroy();}catch(_){}setTimeout(open,5000);}else{lock(false);msg('Tu código sigue ocupado (¿tienes el juego abierto en otra pestaña?). Ciérrala y vuelve a intentarlo.');}}
+      else if(!booted){lock(false);msg('Error de conexión: '+(t||'desconocido')+'.');}else if(t!=='peer-unavailable')toast('Problema de conexión. Reintentando…');});
+    peer.on('connection',c=>{c.on('open',()=>{conns.set(c.peer,c);try{c.send(adapter.helloData());}catch(e){}});
+      c.on('data',m=>{if(m&&m.t==='pres'){c._uid=m.peer;}adapter.receive(m);if(m&&m.t==='pres')sendAll(m,c.peer);});
+      c.on('close',()=>{if(conns.get(c.peer)===c)conns.delete(c.peer);const still=[...conns.values()].some(o=>o._uid&&o._uid===c._uid&&o.open);if(c._uid&&!still){adapter.dropPeer(c._uid);sendAll({t:'leave',peer:c._uid});}});});
+    peer.on('disconnected',()=>{setTimeout(()=>{try{if(peer.disconnected&&!peer.destroyed)peer.reconnect();}catch(e){}},1000);});};
+  open();}
+async function startJoin(){if(busy)return;const code=($('#p2pCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length<4)return msg('Escribe el código que te ha dado tu amigo.');
+  lock(true);LS.set('vc_p2p_lastjoin',code);msg('Conectando…');let Peer;try{Peer=await loadPeer();}catch(e){lock(false);return msg('No hay conexión a internet para jugar en pareja.');}
+  let conn=null,started=false,retry=null,lost=false;const send=m=>{if(conn&&conn.open)try{conn.send(m);}catch(e){}};
+  adapter=makeAdapter(false,'g_'+code,send);peer=new Peer();
+  const fail=t=>{if(!started){lock(false);msg(t);}};
+  const dial=()=>{if(conn&&conn.open)return;const c=peer.connect(PREFIX+code,{reliable:true});conn=c;
+    c.on('open',()=>{if(conn!==c)return;if(lost){lost=false;toast('Conexión recuperada');}adapter.resendPres();});
+    c.on('data',m=>{if(conn!==c)return;adapter.receive(m);if(m&&m.t==='hello'&&!started){started=true;window.claude=adapter.api;msg('');boot('pareja');}});
+    c.on('close',()=>{if(conn!==c)return;adapter.dropPeer('host');if(started){if(!lost){lost=true;toast('Se ha perdido la conexión con la partida. Reintentando…','big');}clearTimeout(retry);retry=setTimeout(dial,4000);}});
+    c.on('error',()=>{});};
+  let firstOpen=true;
+  peer.on('open',()=>{if(!firstOpen){if(started&&(!conn||!conn.open))dial();return;}firstOpen=false;dial();
+    setTimeout(()=>{if(!started)fail('No encuentro esa partida. Comprueba el código y que tu amigo tenga el juego abierto.');},15000);});
+  peer.on('disconnected',()=>{setTimeout(()=>{try{if(peer.disconnected&&!peer.destroyed)peer.reconnect();}catch(e){}},1000);});
+  peer.on('error',e=>{const t=e&&e.type;if(t==='peer-unavailable'){if(!started)fail('No encuentro esa partida. Comprueba el código y que tu amigo tenga el juego abierto.');else{clearTimeout(retry);retry=setTimeout(dial,5000);}}
+    else if(!started)fail('Error de conexión: '+(t||'desconocido')+'.');});}
 $('#p2pHost').onclick=startHost;$('#p2pJoin').onclick=startJoin;
-function showCode(code){const d=document.createElement('div');d.className='frame p2pcode';d.innerHTML=`Código de partida: <b>${code}</b>`;d.title='Pásale este código a tu amigo';$('#hudL').appendChild(d);
+function showCode(code){if($('#p2pChip'))return;const d=document.createElement('div');d.id='p2pChip';d.className='frame p2pcode';d.innerHTML=`Código de partida: <b>${code}</b>`;d.title='Pásale este código a tu amigo';$('#hudL').appendChild(d);
   toast('Partida creada. Pásale a tu amigo el código '+code+'.','big');}
 })();
 
