@@ -2110,6 +2110,7 @@ function shopBtnFor(id){const M=curMap;if(!M||!M.inside)return '';const D2=INTER
 A.openstore=()=>{const D2=INTERIOR[curMap.b];closePanel();setTimeout(()=>{if(D2.shop){const d=TOWN.doors[DOOR_OF[curMap.b].join(',')];const m=clockMins(view);if(d&&d.open&&(m<d.open[0]||m>=d.open[1]))return toast('Ya ha cerrado. Vuelve de '+hm(d.open[0])+' a '+hm(d.open[1])+'.');openShop(D2.shop,D2.n);}else if(D2.civic)openCivic();else openMuseum();},30);};
 function saveAll(){try{saveMe(true);}catch(e){}try{if(typeof amHost==='function'&&amHost())scheduleWrite();flushNow();}catch(e){}
   try{LS.set(meKey(SLOT),me);saveLocalFarm();}catch(e){}
+  if($('#p2pChip'))return toast('Partida guardada en este móvil ✓'+(Object.keys(remotes).length?' (y la granja, también en el de tu pareja)':''));
   toast(mode==='net'||SLOT==='solo'&&db?'Partida guardada ✓ (también en la nube)':'Partida guardada en este dispositivo ✓');}
 
 A.saveall=()=>saveAll();
@@ -2915,7 +2916,7 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 function uidLocal(){let u=LS.get('vc_p2p_uid');if(!u){u='u_'+Math.random().toString(36).slice(2,12);LS.set('vc_p2p_uid',u);}return u;}
 function makeAdapter(isHost,code,sendAll){
   const myId=uidLocal(),storeKey='vc_p2p_store_'+code;
-  const store=Object.assign({},LS.get(storeKey)||{}),docL={},peers={};let myPres={},hostId=null;const peerL=[];
+  const store=Object.assign({},LS.get('vc_p2p_store_g_'+code)||{},LS.get(storeKey)||{}),docL={},peers={};let myPres={},hostId=null;const peerL=[];
   const persist=()=>LS.set(storeKey,store);
   function snap(path){const d=store[path];return {id:path.split('/').pop(),exists:!!d,data:()=>d?clone(d):undefined,metadata:{fromCache:false,hasPendingWrites:false}};}
   function notify(path){(docL[path]||[]).forEach(cb=>setTimeout(()=>cb(snap(path)),0));}
@@ -2931,63 +2932,87 @@ function makeAdapter(isHost,code,sendAll){
   const user={id:async()=>myId,can:async()=>isHost,isOwner:()=>isHost,canEdit:()=>isHost};
   function receive(m){if(!m||typeof m!=='object')return;
     if(m.t==='set'&&m.path==='farm/state'&&!isHost){store[m.path]=m.d;persist();notify(m.path);}
+    else if(m.t==='adopt'&&isHost&&m.farm&&typeof m.farm==='object'&&prog(m.farm)>prog(store['farm/state'])){const f=clone(m.farm);f.ver=Math.max(f.ver||0,(store['farm/state']||{}).ver||0,(typeof base!=='undefined'&&base&&base.ver)||0)+10;store['farm/state']=f;persist();notify('farm/state');sendAll({t:'set',path:'farm/state',d:f});toast('Se ha cargado la granja más avanzada de las dos.');}
     else if(m.t==='pres'&&typeof m.peer==='string'&&m.peer!==myId){peers[m.peer]=m.p||{};fire();}
     else if(m.t==='leave'&&peers[m.peer]){delete peers[m.peer];fire();}
-    else if(m.t==='hello'&&!isHost){hostId=m.host;if(m.farm){store['farm/state']=m.farm;persist();notify('farm/state');}for(const p in (m.pres||{}))if(p!==myId)peers[p]=m.pres[p];fire();}}
+    else if(m.t==='hello'&&!isHost){hostId=m.host;const mine=store['farm/state'];
+      if(mine&&(!m.farm||prog(mine)>prog(m.farm))){sendAll({t:'adopt',farm:mine});}
+      else if(m.farm){store['farm/state']=m.farm;persist();notify('farm/state');}for(const p in (m.pres||{}))if(p!==myId)peers[p]=m.pres[p];fire();}}
   return {api:{use:async n=>({db,room,user}[n]||null)},receive,myId,helloData:()=>({t:'hello',host:myId,farm:store['farm/state']||null,pres:Object.assign({[myId]:clone(myPres)},clone(peers))}),dropPeer:id=>{if(id==='host')id=hostId;if(peers[id]){delete peers[id];fire();}},resendPres:()=>sendAll({t:'pres',peer:myId,p:clone(myPres)})};}
 
 let peerLib=null;
 function loadPeer(){return new Promise((ok,ko)=>{if(window.Peer)return ok(window.Peer);const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
   s.onload=()=>window.Peer?ok(window.Peer):ko(new Error('PeerJS'));s.onerror=()=>ko(new Error('No se pudo cargar PeerJS'));document.head.appendChild(s);});}
+function prog(f){if(!f)return -1;return ((f.year||1)*4+(f.season||0))*28+(f.day||1);}
+function hasLocalFarm(code){const a=LS.get('vc_p2p_store_'+code)||LS.get('vc_p2p_store_g_'+code);return !!(a&&a['farm/state']);}
 function newCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<6;i++)c+=a[Math.floor(Math.random()*a.length)];return c;}
 
 /* ---------- Interfaz de la pantalla de inicio ---------- */
 const box=document.createElement('div');box.id='p2pBox';box.hidden=true;box.className='p2p';
+const savedCode=()=>LS.get('vc_p2p_last')||LS.get('vc_p2p_mycode')||LS.get('vc_p2p_lastjoin')||'';
 box.innerHTML=`<div class="p2ph"><b>Jugar acompañado</b><button class="btn sm alt" id="p2pBack">Volver</button></div>
- <div class="help">Uno crea la partida y le pasa el código al otro. La granja se guarda en el dispositivo de quien la crea, así que juega siempre con el mismo código.</div>
- <button class="btn" id="p2pHost">Crear partida (yo guardo la granja)</button>
- <label for="p2pCode">O únete con un código<input id="p2pCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC123"></label>
- <button class="btn alt" id="p2pJoin">Unirme</button><div class="meta" id="p2pMsg"></div>`;
+ <div class="help">Entrad siempre con el <b>mismo código</b>. Los dos guardáis la granja en vuestro móvil: si el otro no está conectado, la abres tú igualmente y, cuando entre, se sincroniza.</div>
+ <button class="btn" id="p2pMine" hidden></button>
+ <label for="p2pCode">Código de la granja<input id="p2pCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC123"></label>
+ <button class="btn alt" id="p2pJoin">Entrar con este código</button>
+ <button class="btn sm alt" id="p2pNew" style="align-self:flex-start">Crear una granja nueva</button><div class="meta" id="p2pMsg"></div>`;
 $('#start .card').appendChild(box);
-if($('#goAmigos'))$('#goAmigos').remove();const old=$('#goPareja'),btn=old.cloneNode(true);old.replaceWith(btn);btn.querySelector('b').textContent='Jugar con pareja o amigos';const em=btn.querySelector('em');if(em)em.textContent='Crea una granja y comparte el código, o únete con el código de otra persona.';
-btn.querySelector('em').textContent='Con un amigo en otro dispositivo, con un código de partida. No hace falta cuenta.';
-btn.addEventListener('click',()=>{box.hidden=false;$('.slots3').hidden=true;const lc=LS.get('vc_p2p_lastjoin');if(lc)$('#p2pCode').value=lc;});
+if($('#goAmigos'))$('#goAmigos').remove();const old=$('#goPareja'),btn=old.cloneNode(true);old.replaceWith(btn);btn.querySelector('b').textContent='Jugar con pareja o amigos';
+btn.querySelector('em').textContent='Con tu pareja o amigos en otro móvil, usando un código de granja. No hace falta cuenta.';
+if(savedCode())btn.querySelector('span').textContent='Vuestra granja: '+savedCode();
+function refreshBox(){const c=savedCode();const m=$('#p2pMine');if(c){m.hidden=false;m.textContent='Entrar a nuestra granja · '+c;$('#p2pCode').value=c;}else m.hidden=true;}
+btn.addEventListener('click',()=>{box.hidden=false;$('.slots3').hidden=true;refreshBox();});
 $('#p2pBack').onclick=()=>{box.hidden=true;$('.slots3').hidden=false;};
 const msg=t=>{$('#p2pMsg').textContent=t;};
 let adapter=null,peer=null,busy=false;
-function lock(on){busy=on;$('#p2pHost').disabled=on;$('#p2pJoin').disabled=on;}
-async function startHost(){if(busy)return;lock(true);msg('Conectando…');let Peer;try{Peer=await loadPeer();}catch(e){lock(false);return msg('No hay conexión a internet para jugar en pareja.');}
-  let code=LS.get('vc_p2p_mycode');if(!code){code=newCode();LS.set('vc_p2p_mycode',code);}
+function lock(on){busy=on;for(const id of ['#p2pMine','#p2pJoin','#p2pNew'])$(id).disabled=on;}
+function killPeer(){try{peer&&peer.destroy();}catch(e){}peer=null;}
+
+/* Abre la granja en este móvil (este dispositivo hace de anfitrión). */
+async function startHost(code,opt){opt=opt||{};lock(true);msg('Abriendo la granja…');let Peer;try{Peer=await loadPeer();}catch(e){lock(false);return msg('No hay conexión a internet.');}
+  LS.set('vc_p2p_last',code);LS.set('vc_p2p_mycode',code);
   const conns=new Map();const sendAll=(m,except)=>{for(const [id,c] of conns)if(id!==except&&c.open)try{c.send(m);}catch(e){}};
   adapter=makeAdapter(true,code,sendAll);
   let tries=0;const open=()=>{peer=new Peer(PREFIX+code);
-    peer.on('open',()=>{if(booted)return;window.claude=adapter.api;msg('');boot('pareja');showCode(code);});
-    peer.on('error',e=>{const t=e&&e.type;if(t==='unavailable-id'&&!booted){if(++tries<6){msg('Recuperando tu código de partida… ('+tries+')');try{peer.destroy();}catch(_){}setTimeout(open,5000);}else{lock(false);msg('Tu código sigue ocupado (¿tienes el juego abierto en otra pestaña?). Ciérrala y vuelve a intentarlo.');}}
+    peer.on('open',()=>{if(booted)return;window.claude=adapter.api;msg('');boot('pareja');showCode(code);
+      if(!opt.fromJoin)toast('Granja creada. Pásale a tu pareja el código '+code+'. Usad siempre ese mismo código.','big');
+      if(opt.alone)toast('Tu pareja no está conectada: abres tú la granja y se guarda en este móvil. Cuando entre con el código '+code+', se sincroniza.','big');});
+    peer.on('error',e=>{const t=e&&e.type;
+      if(t==='unavailable-id'&&!booted){try{peer.destroy();}catch(_){}
+        if(opt.fromJoin&&(opt.n||0)<3){msg('Tu pareja acaba de abrir la granja. Entrando…');setTimeout(()=>startJoin(code,{n:(opt.n||0)+1}),1500);return;}
+        if(++tries<6){msg('Recuperando la granja… ('+tries+')');setTimeout(open,5000);}else{lock(false);msg('Este código está ocupado (¿tienes el juego abierto en otra pestaña?). Ciérrala y vuelve a intentarlo.');}}
       else if(!booted){lock(false);msg('Error de conexión: '+(t||'desconocido')+'.');}else if(t!=='peer-unavailable')toast('Problema de conexión. Reintentando…');});
     peer.on('connection',c=>{c.on('open',()=>{conns.set(c.peer,c);try{c.send(adapter.helloData());}catch(e){}});
       c.on('data',m=>{if(m&&m.t==='pres'){c._uid=m.peer;}adapter.receive(m);if(m&&m.t==='pres')sendAll(m,c.peer);});
       c.on('close',()=>{if(conns.get(c.peer)===c)conns.delete(c.peer);const still=[...conns.values()].some(o=>o._uid&&o._uid===c._uid&&o.open);if(c._uid&&!still){adapter.dropPeer(c._uid);sendAll({t:'leave',peer:c._uid});}});});
     peer.on('disconnected',()=>{setTimeout(()=>{try{if(peer.disconnected&&!peer.destroyed)peer.reconnect();}catch(e){}},1000);});};
   open();}
-async function startJoin(){if(busy)return;const code=($('#p2pCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length<4)return msg('Escribe el código que te ha dado tu amigo.');
-  lock(true);LS.set('vc_p2p_lastjoin',code);msg('Conectando…');let Peer;try{Peer=await loadPeer();}catch(e){lock(false);return msg('No hay conexión a internet para jugar en pareja.');}
-  let conn=null,started=false,retry=null,lost=false;const send=m=>{if(conn&&conn.open)try{conn.send(m);}catch(e){}};
-  adapter=makeAdapter(false,'g_'+code,send);peer=new Peer();
-  const fail=t=>{if(!started){lock(false);msg(t);}};
-  const dial=()=>{if(conn&&conn.open)return;const c=peer.connect(PREFIX+code,{reliable:true});conn=c;
+
+/* Intenta unirse a quien tenga la granja abierta; si no hay nadie y la granja está en este móvil, la abre aquí. */
+async function startJoin(code,opt){opt=opt||{};code=String(code||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length<4)return msg('Escribe el código de la granja.');
+  lock(true);msg('Buscando la granja '+code+'…');let Peer;try{Peer=await loadPeer();}catch(e){lock(false);return msg('No hay conexión a internet.');}
+  let conn=null,started=false,retry=null,lost=false,gaveUp=false;const send=m=>{if(conn&&conn.open)try{conn.send(m);}catch(e){}};
+  adapter=makeAdapter(false,code,send);killPeer();const me2=new Peer();peer=me2;
+  const canOwn=hasLocalFarm(code)||LS.get('vc_p2p_mycode')===code;
+  const noHost=()=>{if(started||gaveUp)return;gaveUp=true;try{me2.destroy();}catch(e){}
+    if(canOwn)return startHost(code,{fromJoin:true,alone:true,n:opt.n});
+    lock(false);msg('No hay nadie con la granja '+code+' abierta y en este móvil no está guardada. Pide a tu pareja que entre primero (solo la primera vez).');};
+  const dial=()=>{if(conn&&conn.open)return;const c=me2.connect(PREFIX+code,{reliable:true});conn=c;
     c.on('open',()=>{if(conn!==c)return;if(lost){lost=false;toast('Conexión recuperada');}adapter.resendPres();});
-    c.on('data',m=>{if(conn!==c)return;adapter.receive(m);if(m&&m.t==='hello'&&!started){started=true;window.claude=adapter.api;msg('');boot('pareja');}});
-    c.on('close',()=>{if(conn!==c)return;adapter.dropPeer('host');if(started){if(!lost){lost=true;toast('Se ha perdido la conexión con la partida. Reintentando…','big');}clearTimeout(retry);retry=setTimeout(dial,4000);}});
+    c.on('data',m=>{if(conn!==c)return;adapter.receive(m);if(m&&m.t==='hello'&&!started){started=true;LS.set('vc_p2p_last',code);LS.set('vc_p2p_lastjoin',code);window.claude=adapter.api;msg('');boot('pareja');showCode(code);}});
+    c.on('close',()=>{if(conn!==c)return;adapter.dropPeer('host');if(started){if(!lost){lost=true;toast('Se ha perdido la conexión con tu pareja. Reintentando… (tu avance personal se sigue guardando)','big');}clearTimeout(retry);retry=setTimeout(dial,4000);}});
     c.on('error',()=>{});};
   let firstOpen=true;
-  peer.on('open',()=>{if(!firstOpen){if(started&&(!conn||!conn.open))dial();return;}firstOpen=false;dial();
-    setTimeout(()=>{if(!started)fail('No encuentro esa partida. Comprueba el código y que tu amigo tenga el juego abierto.');},15000);});
-  peer.on('disconnected',()=>{setTimeout(()=>{try{if(peer.disconnected&&!peer.destroyed)peer.reconnect();}catch(e){}},1000);});
-  peer.on('error',e=>{const t=e&&e.type;if(t==='peer-unavailable'){if(!started)fail('No encuentro esa partida. Comprueba el código y que tu amigo tenga el juego abierto.');else{clearTimeout(retry);retry=setTimeout(dial,5000);}}
-    else if(!started)fail('Error de conexión: '+(t||'desconocido')+'.');});}
-$('#p2pHost').onclick=startHost;$('#p2pJoin').onclick=startJoin;
-function showCode(code){if($('#p2pChip'))return;const d=document.createElement('div');d.id='p2pChip';d.className='frame p2pcode';d.innerHTML=`Código de partida: <b>${code}</b>`;d.title='Pásale este código a tu amigo';$('#hudL').appendChild(d);
-  toast('Partida creada. Pásale a tu amigo el código '+code+'.','big');}
+  me2.on('open',()=>{if(!firstOpen){if(started&&(!conn||!conn.open))dial();return;}firstOpen=false;dial();setTimeout(noHost,canOwn?6000:15000);});
+  me2.on('disconnected',()=>{setTimeout(()=>{try{if(me2.disconnected&&!me2.destroyed)me2.reconnect();}catch(e){}},1000);});
+  me2.on('error',e=>{const t=e&&e.type;if(t==='peer-unavailable'){if(!started)noHost();else{clearTimeout(retry);retry=setTimeout(dial,5000);}}
+    else if(!started&&!gaveUp){gaveUp=true;lock(false);msg('Error de conexión: '+(t||'desconocido')+'.');}});}
+$('#p2pMine').onclick=()=>{if(!busy)startJoin(savedCode());};
+$('#p2pJoin').onclick=()=>{if(!busy)startJoin($('#p2pCode').value);};
+$('#p2pNew').onclick=()=>{if(busy)return;if(savedCode()&&!confirmNew())return;startHost(newCode());};
+let newArmed=0;function confirmNew(){if(Date.now()-newArmed<4000)return true;newArmed=Date.now();msg('¿Seguro? Se creará otra granja vacía con otro código. Pulsa otra vez para confirmar.');return false;}
+function showCode(code){if($('#p2pChip'))return;const d=document.createElement('div');d.id='p2pChip';d.className='frame p2pcode';d.innerHTML=`Granja: <b>${code}</b>`;d.title='Vuestro código de granja';$('#hudL').appendChild(d);
+  }
 })();
 
 })();
